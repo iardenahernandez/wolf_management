@@ -1,4 +1,4 @@
-# Wolf management REST AP
+# Wolf management RESTful API
 
 #### 1. Application.properties configuration
 
@@ -27,6 +27,6 @@ spring.mvc.throw-exception-if-no-handler-found=true
 spring.resources.add-mappings=false
 ```
 
-#### 2. Rest API documentation
+#### 2. RESTful API documentation
  The documentation about Pack controller & Wolf controller can be found in the following link:
  http://localhost:8080/swagger-ui/
