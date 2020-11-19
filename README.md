@@ -1,6 +1,4 @@
-# wolf_management
-
-### Rest API 
+# Wolf management REST AP
 
 #### 1. Application.properties configuration
 
