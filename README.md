@@ -28,5 +28,5 @@ spring.resources.add-mappings=false
 ```
 
 #### 2. Rest API documentation
-    
+ The documentation about Pack controller & Wolf controller can be found in the following link:
  http://localhost:8080/swagger-ui/
