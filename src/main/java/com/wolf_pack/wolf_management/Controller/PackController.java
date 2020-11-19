@@ -4,103 +4,223 @@ import com.wolf_pack.wolf_management.Entity.Pack;
 import com.wolf_pack.wolf_management.Entity.Wolf;
 import com.wolf_pack.wolf_management.Exception.ResourceNotFoundException;
 import com.wolf_pack.wolf_management.RQ.AddWolvesToPackRQ;
+import com.wolf_pack.wolf_management.RQ.CreatePackRQ;
+import com.wolf_pack.wolf_management.RQ.UpdatePackRQ;
 import com.wolf_pack.wolf_management.Repository.PackRepository;
 import com.wolf_pack.wolf_management.Repository.WolfRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Optional;
 
 @RestController
+@RequestMapping("/api")
+@Validated
 public class PackController {
-
     @Autowired
-    PackRepository packRepository;
+    public PackRepository packRepository;
     @Autowired
-    WolfRepository wolfRepository;
+    public WolfRepository wolfRepository;
 
     //List all the packs saved
-    @GetMapping("/listPack")
-    List<Pack> listPack() {
+    @GetMapping("/getPacks")
+    public List<Pack> getPacks() {
         return packRepository.findAll();
     }
 
-    //Creates a new pack without wolves
-    @PostMapping(
-            value = "/createPack", consumes = "application/json", produces = "application/json")
-    public Pack pack(@Valid @RequestBody Pack pack) {
-        return packRepository.save(pack);
+    //List only one pack
+    @GetMapping(value = "/pack/{id}")
+    public ResponseEntity<Pack> getPack(@PathVariable("id") @Min(1) long id) {
+        Pack pack = packRepository.findById(id).orElseThrow(() ->
+                new ResourceNotFoundException("Pack with ID: " + id + " Not Found!"));
+        //Return one pack
+        return ResponseEntity.ok().body(pack);
+    }
+
+    //Creates a new pack with wolves
+    @PostMapping(value = "/createPack", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<String> createPack(@RequestBody @Valid CreatePackRQ createPackRQ) {
+        //Create new pack
+        Pack newPack = new Pack();
+        List<Wolf> wolvesToSave = new ArrayList<>();
+        List<Long> wolvesToAddList = new ArrayList<>();
+        List<Long> wolvesNotFoundDBList = new ArrayList<>();
+
+        //Loop all the wolves sent by Post
+        for (Long id : createPackRQ.getWolvesList()) {
+            //Look for the wolf in DB
+            Optional<Wolf> wolf = wolfRepository.findById(id);
+            if (wolf.isPresent()) {
+                //Adds new wolves
+                wolvesToAddList.add(wolf.get().getId());
+                //Add wolves to the pack
+                wolvesToSave.add(wolf.get());
+            } else {
+                wolvesNotFoundDBList.add(id);
+            }
+        }
+
+        //Checks if there is any new wolf to add
+        if (wolvesToAddList.size() > 0) {
+            //Adds wolves to the new pack
+            newPack.setWolves(wolvesToSave);
+        }
+
+        // Updates name and wolves
+        newPack.setName(createPackRQ.getPackName());
+
+        //Saves the new pack in the DB
+        packRepository.save(newPack);
+
+        return ResponseEntity.ok().body(
+                "New pack created! PackId: " + newPack.getId()
+                        + ", PackName: " + newPack.getName()
+                        + ", wolves added in the pack : " + wolvesToAddList.toString()
+                        + ", wolves not found in DB: " + wolvesNotFoundDBList.toString());
+    }
+
+    //Creates a new pack with wolves
+    @PutMapping(value = "/updatePack", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<String> updatePack(@RequestBody @Valid UpdatePackRQ updatePackRQ) {
+        //Get pack
+        Pack pack = packRepository.findById(updatePackRQ.getPackId()).orElseThrow(() ->
+                new ResourceNotFoundException("Pack with ID: " + updatePackRQ.getPackId() + " Not Found!"));
+
+        List<Wolf> wolfList = new ArrayList<>();
+
+        //Checks if the user sends a wolf list
+        if (updatePackRQ.getWolvesList().size() > 0) {
+            //Loop all the wolves sent by Post
+            for (Long id : updatePackRQ.getWolvesList()) {
+                //Look for the wolf in DB
+                Wolf wolf = wolfRepository.findById(id).orElseThrow(() ->
+                        new ResourceNotFoundException("Wolf with ID: " + id + " Not Found!"));
+
+                //Adds wolf to the list
+                wolfList.add(wolf);
+            }
+            pack.setWolves(wolfList);
+        }
+        //Checks if the user sends a pack name
+        if (updatePackRQ.getPackName() != null && !updatePackRQ.getPackName().isEmpty()) {
+            pack.setName(updatePackRQ.getPackName());
+        }
+
+        //Saves updated pack
+        packRepository.save(pack);
+
+        //Returns pack id & pack name
+        return ResponseEntity.ok().body(
+                "Pack updated! Pack with ID: " + pack.getId()
+                        + ", pack name: " + pack.getName()
+                        + ", wolves updated: " + wolfList.toString());
+
     }
 
     //Add a list of wolves and saves it into the DB
-    @PostMapping(
-            value = "/addWolfToPack", consumes = "application/json", produces = "application/json")
-    public String addWolfToPack(@RequestBody @Valid AddWolvesToPackRQ addWolvesToPackRQ) {
+    @PostMapping(value = "/addWolfToPack", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<String> addWolfToPack(@RequestBody @Valid AddWolvesToPackRQ addWolvesToPackRQ) {
         //Get the pack & check if it exists
-        Pack pack = packRepository.findById(addWolvesToPackRQ.getPackId()).orElseThrow(() -> new ResourceNotFoundException("Pack with ID :" + addWolvesToPackRQ.packId + " Not Found!"));
+        Pack pack = packRepository.findById(addWolvesToPackRQ.getPackId()).orElseThrow(() ->
+                new ResourceNotFoundException("Pack with ID :" + addWolvesToPackRQ.getPackId() + " Not Found!"));
 
-        List<Long> wolfList = new ArrayList<>();
-        List<Long> wolfExistList = new ArrayList<>();
+        List<Long> wolvesToAddList = new ArrayList<>();
+        List<Long> wolvesAlreadyInPackList = new ArrayList<>();
+        List<Long> wolvesNotFoundDBList = new ArrayList<>();
 
         //Loop all the wolves sent by Post
         for (Long id : addWolvesToPackRQ.getWolvesList()) {
             //Look for the wolf in DB
-            Wolf wolf = wolfRepository.findById(id).orElseThrow(() ->
-                    new ResourceNotFoundException("Wolf with ID :" + id + " Not Found!"));
-
-            //Checks if the wolf exists
-            if (pack.getWolves().contains(wolf)) {
-                //Adds all existing wolfs
-                wolfExistList.add(wolf.getId());
+            Optional<Wolf> wolf = wolfRepository.findById(id);
+            if (wolf.isPresent()) {
+                //Checks if the wolf exists
+                if (pack.getWolves().contains(wolf.get())) {
+                    //Adds all existing wolfs
+                    wolvesAlreadyInPackList.add(wolf.get().getId());
+                } else {
+                    //Adds new wolves
+                    wolvesToAddList.add(wolf.get().getId());
+                    //Add wolves to the pack
+                    pack.getWolves().add(wolf.get());
+                }
             } else {
-                //Adds new wolves
-                wolfList.add(wolf.getId());
+                wolvesNotFoundDBList.add(id);
             }
-            pack.getWolves().add(wolf);
         }
-        //Saves the new wolf/wolves in the DB
-        packRepository.save(pack);
 
-        return "Added wolves:" + wolfList.toString() + ", existing wolves: " + wolfExistList.toString();
+        //Checks if there is any new wolf to add
+        if (wolvesToAddList.size() > 0) {
+            //Saves the new wolf/wolves in the DB
+            packRepository.save(pack);
+        }
+
+        //Returns added wolves, not found wolves & existing wolves
+        return ResponseEntity.ok().body(
+                "Added wolves:" + wolvesToAddList.toString()
+                        + ", wolves already in the pack : " + wolvesAlreadyInPackList.toString()
+                        + ", wolves not found in DB: " + wolvesNotFoundDBList.toString());
     }
 
     //Removes wolf/wolves from a Pack
-    @PostMapping(
-            value = "/removeWolfFromPack", consumes = "application/json", produces = "application/json")
-    public String removeWolfFromPack(@RequestBody @Valid AddWolvesToPackRQ addWolvesToPackRQ) {
+    @PostMapping(value = "/removeWolfFromPack", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<String> removeWolfFromPack(@RequestBody @Valid AddWolvesToPackRQ addWolvesToPackRQ) {
         //Get the pack & check if it exists
         Pack pack = packRepository.findById(addWolvesToPackRQ.getPackId()).orElseThrow(() ->
-                new ResourceNotFoundException("Pack with ID :" + addWolvesToPackRQ.packId + " Not Found!"));
+                new ResourceNotFoundException("Pack with ID: " + addWolvesToPackRQ.getPackId() + " Not Found!"));
 
-        List<Long> wolfList = new ArrayList<>();
-        List<Long> wolfExistList = new ArrayList<>();
+        List<Long> removedWolfList = new ArrayList<>();
+        List<Long> wolvesNotFoundInPackList = new ArrayList<>();
+        List<Long> wolvesNotFoundDBList = new ArrayList<>();
 
-        //Look for the wolf in DB
+        //Loops all the wolves sent by Post
         for (Long id : addWolvesToPackRQ.getWolvesList()) {
-            //Gets the wolf & check if it exists
-            Wolf wolf = wolfRepository.findById(id).orElseThrow(() ->
-                    new ResourceNotFoundException("Wolf with ID :" + id + " Not Found!"));
-
-            //Checks if the wolf is in the Pack
-            if (pack.getWolves().contains(wolf)) {
-                //Adds existing wolves
-                wolfExistList.add(wolf.getId());
+            //Looks for the wolf in DB
+            Optional<Wolf> wolf = wolfRepository.findById(id);
+            if (wolf.isPresent()) {
+                //Checks if the wolf exists in the pack
+                if (pack.getWolves().contains(wolf.get())) {
+                    pack.getWolves().remove(wolf.get());
+                    //Adds wolves removed to the pack
+                    removedWolfList.add(wolf.get().getId());
+                } else {
+                    //Adds wolves not found in pack
+                    wolvesNotFoundInPackList.add(wolf.get().getId());
+                }
             } else {
-                //Adds removed wolves
-                wolfList.add(wolf.getId());
+                wolvesNotFoundDBList.add(id);
             }
-            //Remove wolves from the Pack
-            pack.getWolves().remove(wolf);
         }
-        //Saves the updated Pack
-        packRepository.save(pack);
 
-        return "Removed wolves:" + wolfExistList.toString() + ", wolves not found: " + wolfList.toString();
+        //Checks if there is any new wolf to add
+        if (removedWolfList.size() > 0) {
+            //Saves the new wolf/wolves in the DB
+            packRepository.save(pack);
+        }
+
+        //Returns removed wolves, not found wolves & existing wolves
+        return ResponseEntity.ok().body(
+                "Removed wolves:" + removedWolfList.toString()
+                        + ", wolves not found in pack: " + wolvesNotFoundInPackList
+                        + ", wolves not found in DB: " + wolvesNotFoundDBList.toString());
+    }
+
+    //Deletes a pack from DB
+    @DeleteMapping(value = "/pack/{id}")
+    public ResponseEntity<String> deletePack(@PathVariable("id") @Min(1) long id) {
+        //Check if pack exists
+        Pack pack = packRepository.findById(id).orElseThrow(() ->
+                new ResourceNotFoundException("User with ID :" + id + " Not Found!"));
+
+        //Delete pack from DB
+        packRepository.deleteById(pack.getId());
+
+        //Return response
+        return ResponseEntity.ok().body("Pack with ID  " + pack.getId() + " deleted with success!");
     }
 }

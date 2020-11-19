@@ -5,11 +5,15 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 public class UpdateLocationRQ {
-    public Long wolfId;
+    //Wolf name. Mandatory
+    @NotNull(message = "Please, insert a valid wolf ID.")
+    private Long wolfId;
+
+    //Location: accepts DD (decimal degrees) coordinates. Example: 51.4381, 5.4752. Mandatory
     @Pattern(regexp = "^([-+]?)([\\d]{1,2})(((\\.)(\\d+)(,)))(\\s*)(([-+]?)([\\d]{1,3})((\\.)(\\d+))?)$", message = "Enter a correct GSP coordinate, please.")
     @NotEmpty(message = "Enter a correct GSP coordinate, please.")
-    @NotNull
-    private String location;
+    @NotNull(message = "Enter a correct GSP coordinate, please.")
+    private String wolfLocation;
 
     public UpdateLocationRQ() {
     }
@@ -22,11 +26,11 @@ public class UpdateLocationRQ {
         this.wolfId = wolfId;
     }
 
-    public String getLocation() {
-        return location;
+    public String getWolfLocation() {
+        return wolfLocation;
     }
 
-    public void setLocation(String location) {
-        this.location = location;
+    public void setWolfLocation(String wolfLocation) {
+        this.wolfLocation = wolfLocation;
     }
 }

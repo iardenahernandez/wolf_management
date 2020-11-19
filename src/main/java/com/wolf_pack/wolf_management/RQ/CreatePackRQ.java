@@ -3,24 +3,24 @@ package com.wolf_pack.wolf_management.RQ;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
-public class AddWolvesToPackRQ {
-    //Pack identifier. Mandatory
-    @NotNull(message = "Please, insert a valid pack ID.")
-    private Long packId;
+public class CreatePackRQ {
+    //Pack name. Mandatory
+    @NotNull(message = "Please, insert a pack name.")
+    private String packName;
 
-    //List of wolves to add. Mandatory
+    //List of wolves to insert. Mandatory
     @NotNull(message = "You should add at least one wolf to the pack.")
     private List<Long> wolvesList;
 
-    public AddWolvesToPackRQ() {
+    public CreatePackRQ() {
     }
 
-    public Long getPackId() {
-        return packId;
+    public String getPackName() {
+        return packName;
     }
 
-    public void setPackId(Long packId) {
-        this.packId = packId;
+    public void setPackName(String packName) {
+        this.packName = packName;
     }
 
     public List<Long> getWolvesList() {
