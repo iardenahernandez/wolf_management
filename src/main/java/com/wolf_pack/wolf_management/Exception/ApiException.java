@@ -7,12 +7,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public class ApiException {
-
+//This class helps to create custom notifications
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy hh:mm:ss")
+    //Date time field
     private LocalDateTime timestamp;
 
+    //HttpStatus
     private HttpStatus status;
+
+    //Returned message
     private String message;
+
+    //List of errors
     private List<String> errors;
 
     public ApiException(LocalDateTime now, HttpStatus notFound, String resource_not_found, List<String> details) {
