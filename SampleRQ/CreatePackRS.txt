@@ -1,0 +1,1 @@
+New pack created! PackId: 3, PackName: Alpha, wolves added in the pack : [2, 3], wolves not found in DB: [1]

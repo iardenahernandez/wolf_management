@@ -1,0 +1,1 @@
+New wolf created! WolfId: 7, WolfName: Laura

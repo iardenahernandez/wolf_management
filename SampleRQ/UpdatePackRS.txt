@@ -1,0 +1,1 @@
+Pack updated! Pack with ID: 1, pack name: Beta, wolves updated in the pack : [2, 3], wolves not found in DB: [10]

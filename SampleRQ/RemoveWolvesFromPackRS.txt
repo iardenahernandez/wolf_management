@@ -1,0 +1,1 @@
+Removed wolves:[2, 3], wolves not found in pack: [], wolves not found in DB: [1]

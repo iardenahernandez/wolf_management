@@ -5,6 +5,7 @@ import com.wolf_pack.wolf_management.Entity.Wolf;
 import com.wolf_pack.wolf_management.Exception.ResourceNotFoundException;
 import com.wolf_pack.wolf_management.RQ.AddWolvesToPackRQ;
 import com.wolf_pack.wolf_management.RQ.CreatePackRQ;
+import com.wolf_pack.wolf_management.RQ.RemoveWolvesFromPackRQ;
 import com.wolf_pack.wolf_management.RQ.UpdatePackRQ;
 import com.wolf_pack.wolf_management.Repository.PackRepository;
 import com.wolf_pack.wolf_management.Repository.WolfRepository;
@@ -48,7 +49,7 @@ public class PackController {
     public ResponseEntity<String> createPack(@RequestBody @Valid CreatePackRQ createPackRQ) {
         //Create new pack
         Pack newPack = new Pack();
-        List<Wolf> wolvesToSave = new ArrayList<>();
+        List<Wolf> wolfList = new ArrayList<>();
         List<Long> wolvesToAddList = new ArrayList<>();
         List<Long> wolvesNotFoundDBList = new ArrayList<>();
 
@@ -60,7 +61,7 @@ public class PackController {
                 //Adds new wolves
                 wolvesToAddList.add(wolf.get().getId());
                 //Add wolves to the pack
-                wolvesToSave.add(wolf.get());
+                wolfList.add(wolf.get());
             } else {
                 wolvesNotFoundDBList.add(id);
             }
@@ -69,7 +70,7 @@ public class PackController {
         //Checks if there is any new wolf to add
         if (wolvesToAddList.size() > 0) {
             //Adds wolves to the new pack
-            newPack.setWolves(wolvesToSave);
+            newPack.setWolves(wolfList);
         }
 
         // Updates name and wolves
@@ -85,7 +86,7 @@ public class PackController {
                         + ", wolves not found in DB: " + wolvesNotFoundDBList.toString());
     }
 
-    //Creates a new pack with wolves
+    //Updates a pack
     @PutMapping(value = "/updatePack", consumes = "application/json", produces = "application/json")
     public ResponseEntity<String> updatePack(@RequestBody @Valid UpdatePackRQ updatePackRQ) {
         //Get pack
@@ -93,20 +94,23 @@ public class PackController {
                 new ResourceNotFoundException("Pack with ID: " + updatePackRQ.getPackId() + " Not Found!"));
 
         List<Wolf> wolfList = new ArrayList<>();
+        List<Long> wolvesToAddList = new ArrayList<>();
+        List<Long> wolvesNotFoundDBList = new ArrayList<>();
 
-        //Checks if the user sends a wolf list
-        if (updatePackRQ.getWolvesList().size() > 0) {
-            //Loop all the wolves sent by Post
-            for (Long id : updatePackRQ.getWolvesList()) {
-                //Look for the wolf in DB
-                Wolf wolf = wolfRepository.findById(id).orElseThrow(() ->
-                        new ResourceNotFoundException("Wolf with ID: " + id + " Not Found!"));
-
-                //Adds wolf to the list
-                wolfList.add(wolf);
+        //Loop all the wolves sent by Post
+        for (Long id : updatePackRQ.getWolvesList()) {
+            //Look for the wolf in DB
+            Optional<Wolf> wolf = wolfRepository.findById(id);
+            if (wolf.isPresent()) {
+                //Adds wolves to update
+                wolvesToAddList.add(wolf.get().getId());
+                //Add wolves to the pack
+                wolfList.add(wolf.get());
+            } else {
+                wolvesNotFoundDBList.add(id);
             }
-            pack.setWolves(wolfList);
         }
+
         //Checks if the user sends a pack name
         if (updatePackRQ.getPackName() != null && !updatePackRQ.getPackName().isEmpty()) {
             pack.setName(updatePackRQ.getPackName());
@@ -115,11 +119,12 @@ public class PackController {
         //Saves updated pack
         packRepository.save(pack);
 
-        //Returns pack id & pack name
+        //Returns pack id, pack name and wolves response
         return ResponseEntity.ok().body(
                 "Pack updated! Pack with ID: " + pack.getId()
                         + ", pack name: " + pack.getName()
-                        + ", wolves updated: " + wolfList.toString());
+                        + ", wolves updated in the pack : " + wolvesToAddList.toString()
+                        + ", wolves not found in DB: " + wolvesNotFoundDBList.toString());
 
     }
 
@@ -169,17 +174,17 @@ public class PackController {
 
     //Removes wolf/wolves from a Pack
     @PostMapping(value = "/removeWolfFromPack", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<String> removeWolfFromPack(@RequestBody @Valid AddWolvesToPackRQ addWolvesToPackRQ) {
+    public ResponseEntity<String> removeWolfFromPack(@RequestBody @Valid RemoveWolvesFromPackRQ removeWolvesFromPackRQ) {
         //Get the pack & check if it exists
-        Pack pack = packRepository.findById(addWolvesToPackRQ.getPackId()).orElseThrow(() ->
-                new ResourceNotFoundException("Pack with ID: " + addWolvesToPackRQ.getPackId() + " Not Found!"));
+        Pack pack = packRepository.findById(removeWolvesFromPackRQ.getPackId()).orElseThrow(() ->
+                new ResourceNotFoundException("Pack with ID: " + removeWolvesFromPackRQ.getPackId() + " Not Found!"));
 
         List<Long> removedWolfList = new ArrayList<>();
         List<Long> wolvesNotFoundInPackList = new ArrayList<>();
         List<Long> wolvesNotFoundDBList = new ArrayList<>();
 
         //Loops all the wolves sent by Post
-        for (Long id : addWolvesToPackRQ.getWolvesList()) {
+        for (Long id : removeWolvesFromPackRQ.getWolvesList()) {
             //Looks for the wolf in DB
             Optional<Wolf> wolf = wolfRepository.findById(id);
             if (wolf.isPresent()) {
@@ -197,9 +202,9 @@ public class PackController {
             }
         }
 
-        //Checks if there is any new wolf to add
+        //Checks if there is any new wolf to remove
         if (removedWolfList.size() > 0) {
-            //Saves the new wolf/wolves in the DB
+            //Removes the wolves in the DB
             packRepository.save(pack);
         }
 
